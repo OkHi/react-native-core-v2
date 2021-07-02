@@ -13,10 +13,18 @@ type ReactNativeCoreType = {
   isLocationPermissionGranted(): Promise<boolean>;
   isLocationServicesEnabled(): Promise<boolean>;
   isGooglePlayServicesAvailable(): Promise<boolean>;
+  isBackgroundLocationPermissionGranted(): Promise<boolean>;
   openLocationServicesSettings(): Promise<void>;
   requestEnableLocationServices(): Promise<boolean>;
   requestEnableGooglePlayServices(): Promise<boolean>;
   getSDKVersion(): Promise<number>;
+  requestLocationPermission(): Promise<boolean>;
+  requestBackgroundLocationPermission(): Promise<boolean>;
+  initialize(
+    branchId: string,
+    clientKey: string,
+    environemt: string
+  ): Promise<boolean>;
 };
 
 /**
@@ -30,7 +38,14 @@ const ReactNativeCore: ReactNativeCoreType = NativeModules.ReactNativeCore;
  */
 export const isLocationPermissionGranted = (): Promise<boolean> => {
   return new Promise(async (resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'ios') {
+      resolve(await ReactNativeCore.isLocationPermissionGranted());
+    } else if (Platform.OS === 'android') {
+      const hasPermission = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      );
+      resolve(hasPermission);
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
@@ -38,10 +53,6 @@ export const isLocationPermissionGranted = (): Promise<boolean> => {
         })
       );
     }
-    const hasPermission = await PermissionsAndroid.check(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-    );
-    resolve(hasPermission);
   });
 };
 
@@ -51,7 +62,18 @@ export const isLocationPermissionGranted = (): Promise<boolean> => {
  */
 export const isLocationServicesEnabled = (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'android' || Platform.OS == 'ios') {
+      ReactNativeCore.isLocationServicesEnabled()
+        .then(resolve)
+        .catch((error) =>
+          reject(
+            new OkHiException({
+              code: error.code,
+              message: error.message,
+            })
+          )
+        );
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
@@ -59,16 +81,6 @@ export const isLocationServicesEnabled = (): Promise<boolean> => {
         })
       );
     }
-    ReactNativeCore.isLocationServicesEnabled()
-      .then(resolve)
-      .catch((error) =>
-        reject(
-          new OkHiException({
-            code: error.code,
-            message: error.message,
-          })
-        )
-      );
   });
 };
 
@@ -105,7 +117,9 @@ export const isGooglePlayServicesAvailable = (): Promise<boolean> => {
  */
 export const openLocationServicesSettings = (): Promise<void> => {
   return new Promise((_, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      ReactNativeCore.openLocationServicesSettings();
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
@@ -113,7 +127,6 @@ export const openLocationServicesSettings = (): Promise<void> => {
         })
       );
     }
-    ReactNativeCore.openLocationServicesSettings();
   });
 };
 
@@ -123,7 +136,18 @@ export const openLocationServicesSettings = (): Promise<void> => {
  */
 export const requestEnableLocationServices = (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      ReactNativeCore.requestEnableLocationServices()
+        .then(resolve)
+        .catch((error) =>
+          reject(
+            new OkHiException({
+              code: error.code,
+              message: error.message,
+            })
+          )
+        );
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
@@ -131,16 +155,6 @@ export const requestEnableLocationServices = (): Promise<boolean> => {
         })
       );
     }
-    ReactNativeCore.requestEnableLocationServices()
-      .then(resolve)
-      .catch((error) =>
-        reject(
-          new OkHiException({
-            code: error.code,
-            message: error.message,
-          })
-        )
-      );
   });
 };
 
@@ -177,7 +191,19 @@ export const requestEnableGooglePlayServices = (): Promise<boolean> => {
  */
 export const requestLocationPermission = (): Promise<boolean> => {
   return new Promise(async (resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'android') {
+      const hasPermission = await isLocationPermissionGranted();
+      if (hasPermission) {
+        return resolve(hasPermission);
+      }
+      const status: any = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      resolve(status['android.permission.ACCESS_FINE_LOCATION'] === 'granted');
+    } else if (Platform.OS === 'ios') {
+      resolve(await ReactNativeCore.requestLocationPermission());
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
@@ -185,15 +211,6 @@ export const requestLocationPermission = (): Promise<boolean> => {
         })
       );
     }
-    const hasPermission = await isLocationPermissionGranted();
-    if (hasPermission) {
-      return resolve(hasPermission);
-    }
-    const status: any = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-    ]);
-    resolve(status['android.permission.ACCESS_FINE_LOCATION'] === 'granted');
   });
 };
 
@@ -203,24 +220,27 @@ export const requestLocationPermission = (): Promise<boolean> => {
  */
 export const isBackgroundLocationPermissionGranted = (): Promise<boolean> => {
   return new Promise(async (resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'ios') {
+      resolve(await ReactNativeCore.isBackgroundLocationPermissionGranted());
+    } else if (Platform.OS === 'android') {
+      const sdkVersion = await ReactNativeCore.getSDKVersion();
+      if (sdkVersion < 29) {
+        resolve(await isLocationPermissionGranted());
+      } else if (sdkVersion < 23) {
+        resolve(true);
+      } else {
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION
+        );
+        resolve(hasPermission);
+      }
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
           message: OkHiException.UNSUPPORTED_PLATFORM_MESSAGE,
         })
       );
-    }
-    const sdkVersion = await ReactNativeCore.getSDKVersion();
-    if (sdkVersion < 29) {
-      resolve(await isLocationPermissionGranted());
-    } else if (sdkVersion < 23) {
-      resolve(true);
-    } else {
-      const hasPermission = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION
-      );
-      resolve(hasPermission);
     }
   });
 };
@@ -231,7 +251,31 @@ export const isBackgroundLocationPermissionGranted = (): Promise<boolean> => {
  */
 export const requestBackgroundLocationPermission = (): Promise<boolean> => {
   return new Promise(async (resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'android') {
+      const hasPermission = await isBackgroundLocationPermissionGranted();
+      if (hasPermission) {
+        return resolve(hasPermission);
+      }
+      const status: any = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+      ]);
+      const sdkVersion = await ReactNativeCore.getSDKVersion();
+      if (sdkVersion < 29) {
+        resolve(
+          status['android.permission.ACCESS_FINE_LOCATION'] === 'granted'
+        );
+      } else if (sdkVersion < 23) {
+        resolve(true);
+      } else {
+        resolve(
+          status['android.permission.ACCESS_BACKGROUND_LOCATION'] === 'granted'
+        );
+      }
+    } else if (Platform.OS === 'ios') {
+      resolve(await ReactNativeCore.requestBackgroundLocationPermission());
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
@@ -239,24 +283,17 @@ export const requestBackgroundLocationPermission = (): Promise<boolean> => {
         })
       );
     }
-    const hasPermission = await isBackgroundLocationPermissionGranted();
-    if (hasPermission) {
-      return resolve(hasPermission);
-    }
-    const status: any = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-      PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-    ]);
-    const sdkVersion = await ReactNativeCore.getSDKVersion();
-    if (sdkVersion < 29) {
-      resolve(status['android.permission.ACCESS_FINE_LOCATION'] === 'granted');
-    } else if (sdkVersion < 23) {
-      resolve(true);
-    } else {
-      resolve(
-        status['android.permission.ACCESS_BACKGROUND_LOCATION'] === 'granted'
-      );
-    }
   });
+};
+
+export const init = (credentials: {
+  branchId: string;
+  clientKey: string;
+  environemnt: string;
+}) => {
+  return ReactNativeCore.initialize(
+    credentials.branchId,
+    credentials.clientKey,
+    credentials.environemnt
+  );
 };
