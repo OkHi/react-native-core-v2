@@ -17,6 +17,11 @@ type ReactNativeCoreType = {
   requestEnableLocationServices(): Promise<boolean>;
   requestEnableGooglePlayServices(): Promise<boolean>;
   getSDKVersion(): Promise<number>;
+  initialize(
+    branchId: string,
+    clientKey: string,
+    environemt: string
+  ): Promise<boolean>;
 };
 
 /**
@@ -259,4 +264,16 @@ export const requestBackgroundLocationPermission = (): Promise<boolean> => {
       );
     }
   });
+};
+
+export const init = (credentials: {
+  branchId: string;
+  clientKey: string;
+  environemnt: string;
+}) => {
+  return ReactNativeCore.initialize(
+    credentials.branchId,
+    credentials.clientKey,
+    credentials.environemnt
+  );
 };
