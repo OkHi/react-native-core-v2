@@ -18,4 +18,8 @@ RCT_EXTERN_METHOD(requestEnableLocationServices: (RCTPromiseResolveBlock)resolve
 
 RCT_EXTERN_METHOD(getSDKVersion: (RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(requestLocationPermission: (RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(requestBackgroundLocationPermission: (RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject)
+
 @end
