@@ -18,6 +18,8 @@ type ReactNativeCoreType = {
   requestEnableLocationServices(): Promise<boolean>;
   requestEnableGooglePlayServices(): Promise<boolean>;
   getSDKVersion(): Promise<number>;
+  requestLocationPermission(): Promise<boolean>;
+  requestBackgroundLocationPermission(): Promise<boolean>;
   initialize(
     branchId: string,
     clientKey: string,
@@ -189,7 +191,19 @@ export const requestEnableGooglePlayServices = (): Promise<boolean> => {
  */
 export const requestLocationPermission = (): Promise<boolean> => {
   return new Promise(async (resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'android') {
+      const hasPermission = await isLocationPermissionGranted();
+      if (hasPermission) {
+        return resolve(hasPermission);
+      }
+      const status: any = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      resolve(status['android.permission.ACCESS_FINE_LOCATION'] === 'granted');
+    } else if (Platform.OS === 'ios') {
+      resolve(await ReactNativeCore.requestLocationPermission());
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
@@ -197,15 +211,6 @@ export const requestLocationPermission = (): Promise<boolean> => {
         })
       );
     }
-    const hasPermission = await isLocationPermissionGranted();
-    if (hasPermission) {
-      return resolve(hasPermission);
-    }
-    const status: any = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-    ]);
-    resolve(status['android.permission.ACCESS_FINE_LOCATION'] === 'granted');
   });
 };
 
@@ -246,31 +251,36 @@ export const isBackgroundLocationPermissionGranted = (): Promise<boolean> => {
  */
 export const requestBackgroundLocationPermission = (): Promise<boolean> => {
   return new Promise(async (resolve, reject) => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS === 'android') {
+      const hasPermission = await isBackgroundLocationPermissionGranted();
+      if (hasPermission) {
+        return resolve(hasPermission);
+      }
+      const status: any = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+      ]);
+      const sdkVersion = await ReactNativeCore.getSDKVersion();
+      if (sdkVersion < 29) {
+        resolve(
+          status['android.permission.ACCESS_FINE_LOCATION'] === 'granted'
+        );
+      } else if (sdkVersion < 23) {
+        resolve(true);
+      } else {
+        resolve(
+          status['android.permission.ACCESS_BACKGROUND_LOCATION'] === 'granted'
+        );
+      }
+    } else if (Platform.OS === 'ios') {
+      resolve(await ReactNativeCore.requestBackgroundLocationPermission());
+    } else {
       reject(
         new OkHiException({
           code: OkHiException.UNSUPPORTED_PLATFORM_CODE,
           message: OkHiException.UNSUPPORTED_PLATFORM_MESSAGE,
         })
-      );
-    }
-    const hasPermission = await isBackgroundLocationPermissionGranted();
-    if (hasPermission) {
-      return resolve(hasPermission);
-    }
-    const status: any = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-      PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-    ]);
-    const sdkVersion = await ReactNativeCore.getSDKVersion();
-    if (sdkVersion < 29) {
-      resolve(status['android.permission.ACCESS_FINE_LOCATION'] === 'granted');
-    } else if (sdkVersion < 23) {
-      resolve(true);
-    } else {
-      resolve(
-        status['android.permission.ACCESS_BACKGROUND_LOCATION'] === 'granted'
       );
     }
   });
